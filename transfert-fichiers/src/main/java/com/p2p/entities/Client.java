@@ -214,8 +214,75 @@ public class Client {
     // }
     // }
 
+    // public boolean telechargerFichier(String nomFichierServeur) {
+    // // Calcul du nom local
+    // File fichierLocal = new File(dossierPerso, nomFichierServeur);
+    // if (fichierLocal.exists()) {
+    // String nomLocal = trouverNomCopie(fichierLocal);
+    // System.out.println("Fichier déjà existant : " + nomFichierServeur + ", on
+    // utilise le nom " + nomLocal);
+    // fichierLocal = new File(dossierPerso, nomLocal);
+    // }
+
+    // try (Socket socket = new Socket(adresse, port);
+    // BufferedReader in = new BufferedReader(new
+    // InputStreamReader(socket.getInputStream()));
+    // PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+    // // ENVOI TOUJOURS le nom original au serveur
+    // out.println("GET " + nomFichierServeur + " 0");
+
+    // String checksumServeur = in.readLine();
+    // if (checksumServeur == null || checksumServeur.startsWith("ERREUR"))
+    // return false;
+
+    // String tailleStr = in.readLine();
+    // if (tailleStr == null)
+    // return false;
+
+    // long tailleFichierServeur = Long.parseLong(tailleStr);
+
+    // try (BufferedOutputStream bos = new BufferedOutputStream(new
+    // FileOutputStream(fichierLocal))) {
+    // InputStream socketIn = socket.getInputStream();
+    // byte[] buffer = new byte[4096];
+    // long reste = tailleFichierServeur;
+    // int lu;
+    // while (reste > 0 && (lu = socketIn.read(buffer, 0, (int)
+    // Math.min(buffer.length, reste))) != -1) {
+    // bos.write(buffer, 0, lu);
+    // reste -= lu;
+    // }
+    // }
+
+    // try {
+    // String checksumLocal = fileManager.calculerChecksum(fichierLocal);
+    // return checksumLocal.equals(checksumServeur);
+    // } catch (Exception ex) {
+    // ex.printStackTrace();
+    // return false;
+    // }
+
+    // } catch (IOException e) {
+    // e.printStackTrace();
+    // return false;
+    // }
+    // }
+
+    // Lire checksum et taille sans BufferedReader, avec InputStream et une fonction
+    // de lecture ligne simple
+    private String lireLigne(InputStream in) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        int b;
+        while ((b = in.read()) != -1) {
+            if (b == '\n')
+                break;
+            buffer.write(b);
+        }
+        return buffer.toString("UTF-8").trim();
+    }
+
     public boolean telechargerFichier(String nomFichierServeur) {
-        // Calcul du nom local
         File fichierLocal = new File(dossierPerso, nomFichierServeur);
         if (fichierLocal.exists()) {
             String nomLocal = trouverNomCopie(fichierLocal);
@@ -224,24 +291,22 @@ public class Client {
         }
 
         try (Socket socket = new Socket(adresse, port);
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                InputStream socketIn = socket.getInputStream();
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // ENVOI TOUJOURS le nom original au serveur
             out.println("GET " + nomFichierServeur + " 0");
 
-            String checksumServeur = in.readLine();
+            String checksumServeur = lireLigne(socketIn);
             if (checksumServeur == null || checksumServeur.startsWith("ERREUR"))
                 return false;
 
-            String tailleStr = in.readLine();
+            String tailleStr = lireLigne(socketIn);
             if (tailleStr == null)
                 return false;
 
             long tailleFichierServeur = Long.parseLong(tailleStr);
 
             try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fichierLocal))) {
-                InputStream socketIn = socket.getInputStream();
                 byte[] buffer = new byte[4096];
                 long reste = tailleFichierServeur;
                 int lu;
