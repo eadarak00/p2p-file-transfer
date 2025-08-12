@@ -26,7 +26,8 @@ public class FileManager {
         StringBuilder hexString = new StringBuilder();
         for (byte b : hash) {
             String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) hexString.append('0');
+            if (hex.length() == 1)
+                hexString.append('0');
             hexString.append(hex);
         }
         return hexString.toString();
@@ -39,4 +40,9 @@ public class FileManager {
     public void ecrireFichier(String chemin, byte[] donnees) throws IOException {
         Files.write(Paths.get(chemin), donnees);
     }
+
+    public String getDossierPartage() {
+        return dossierPartage;
+    }
+
 }
