@@ -1,4 +1,4 @@
-package com.p2p;
+package com.p2p.manager;
 
 
 public class Metadata {

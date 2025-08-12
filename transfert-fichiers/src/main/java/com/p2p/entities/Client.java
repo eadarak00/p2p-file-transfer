@@ -1,11 +1,11 @@
 package com.p2p.entities;
 
-import com.p2p.FileManager;
-
 import java.io.*;
 import java.net.Socket;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.p2p.manager.FileManager;
 
 public class Client {
     private static final Map<String, Client> instances = new ConcurrentHashMap<>();

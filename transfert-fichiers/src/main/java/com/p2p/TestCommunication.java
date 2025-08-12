@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.p2p.entities.Client;
 import com.p2p.entities.Serveur;
+import com.p2p.manager.Metadata;
 import com.p2p.utils.RessourceUtils;
 
 import java.lang.reflect.Type;

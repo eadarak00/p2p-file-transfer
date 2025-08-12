@@ -1,7 +1,7 @@
 package com.p2p.utils;
 
 import com.google.gson.Gson;
-import com.p2p.Metadata;
+import com.p2p.manager.Metadata;
 
 import java.io.FileWriter;
 import java.io.FileReader;

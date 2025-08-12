@@ -1,7 +1,7 @@
 package com.p2p.entities;
 
-import com.p2p.FileManager;
-import com.p2p.Metadata;
+import com.p2p.manager.FileManager;
+import com.p2p.manager.Metadata;
 import com.google.gson.Gson;
 
 import java.io.*;

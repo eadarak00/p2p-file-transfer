@@ -1,9 +1,9 @@
 package com.p2p.entities;
 
-import com.p2p.FileManager;
-
 import java.io.*;
 import java.net.Socket;
+
+import com.p2p.manager.FileManager;
 
 public class Client1 {
     private static Client1 instance = null;
