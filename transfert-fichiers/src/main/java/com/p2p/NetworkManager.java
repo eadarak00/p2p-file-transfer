@@ -2,46 +2,36 @@ package com.p2p;
 
 import java.io.*;
 import java.net.*;
-import java.util.*;
+import java.util.List;
 import com.google.gson.Gson;
 
 public class NetworkManager {
     private int port;
     private String dossierPartage;
     private Gson gson = new Gson();
+    private FileManager fileManager;
 
     public NetworkManager(int port, String dossierPartage) {
         this.port = port;
         this.dossierPartage = dossierPartage;
+        if (dossierPartage != null) {
+            this.fileManager = new FileManager(dossierPartage);
+        }
     }
 
-    // Liste les métadonnées des fichiers dans dossierPartage
+    // Récupère la liste des métadonnées via FileManager
     private List<Metadata> getListeMetadonnees() throws Exception {
-        File dossier = new File(dossierPartage);
-        File[] fichiers = dossier.listFiles();
-        List<Metadata> liste = new ArrayList<>();
-
-        if (fichiers != null) {
-            for (File f : fichiers) {
-                if (f.isFile()) {
-                    String checksum = calculerChecksum(f);
-                    liste.add(new Metadata(f.getName(), f.length(), checksum));
-                }
+        List<File> fichiers = fileManager.listerFichiers();
+        // Calculer les Metadata à partir des fichiers
+        return fichiers.stream().filter(File::isFile).map(f -> {
+            try {
+                String checksum = fileManager.calculerChecksum(f);
+                return new Metadata(f.getName(), f.length(), checksum);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
             }
-        }
-        return liste;
-    }
-
-    // Calcul SHA-256
-    private String calculerChecksum(File fichier) throws Exception {
-        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        byte[] bytes = java.nio.file.Files.readAllBytes(fichier.toPath());
-        byte[] hash = digest.digest(bytes);
-        StringBuilder hex = new StringBuilder();
-        for (byte b : hash) {
-            hex.append(String.format("%02x", b));
-        }
-        return hex.toString();
+        }).filter(m -> m != null).toList();
     }
 
     // Serveur TCP qui répond à la commande LIST
