@@ -2,13 +2,15 @@ package com.p2p;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.p2p.utils.RessourceUtils;
+
 import java.lang.reflect.Type;
 import java.util.List;
 
 public class TestCommunication {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         int port = 5000;
-        String dossier = "/chemin/vers/dossierPartage";  // adapte ici
+        String dossier = RessourceUtils.getCheminPartage();
 
         NetworkManager serverManager = new NetworkManager(port, dossier);
         serverManager.demarrerServeur();
