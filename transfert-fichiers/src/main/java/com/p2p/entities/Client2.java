@@ -4,11 +4,9 @@ import com.p2p.FileManager;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-public class Client {
-    private static final Map<String, Client> instances = new ConcurrentHashMap<>();
+public class Client2 {
+    private static Client2 instance = null;
 
     private final String pseudo;
     private final String adresse;
@@ -16,11 +14,10 @@ public class Client {
     private final File dossierPerso;
     private final FileManager fileManager;
 
-    private Client(String pseudo, String adresse, int port, String dossierBase) {
+    private Client2(String pseudo, String adresse, int port, String dossierBase) {
         this.pseudo = pseudo;
         this.adresse = adresse;
         this.port = port;
-        // dossierBase = "./uploads/clients"
         this.dossierPerso = new File(dossierBase, pseudo);
         if (!dossierPerso.exists()) {
             dossierPerso.mkdirs();
@@ -28,8 +25,11 @@ public class Client {
         this.fileManager = new FileManager(dossierPerso.getPath());
     }
 
-    public static Client getInstance(String pseudo, String adresse, int port, String dossierBase) {
-        return instances.computeIfAbsent(pseudo, p -> new Client(p, adresse, port, dossierBase));
+    public static synchronized Client2 getInstance(String pseudo, String adresse, int port, String dossierBase) {
+        if (instance == null) {
+            instance = new Client2(pseudo, adresse, port, dossierBase);
+        }
+        return instance;
     }
 
     public String envoyerCommande(String commande) {
@@ -50,34 +50,21 @@ public class Client {
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 InputStream socketIn = socket.getInputStream()) {
 
-            // Envoi la commande GET
-            out.println("GET " + nomFichier);
+            out.println("GET " + pseudo + " " + nomFichier);
 
             String checksumServeur = in.readLine();
             if (checksumServeur == null || checksumServeur.startsWith("ERREUR"))
                 return false;
 
-            String tailleStr = in.readLine();
-            if (tailleStr == null)
-                return false;
-
-            long tailleFichier = Long.parseLong(tailleStr);
-
             File fichierLocal = new File(dossierPerso, nomFichier);
             try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fichierLocal))) {
                 byte[] buffer = new byte[4096];
-                long reste = tailleFichier;
-                while (reste > 0) {
-                    int toRead = (int) Math.min(buffer.length, reste);
-                    int lu = socketIn.read(buffer, 0, toRead);
-                    if (lu == -1)
-                        break;
-                    bos.write(buffer, 0, lu);
-                    reste -= lu;
+                int read;
+                while ((read = socketIn.read(buffer)) != -1) {
+                    bos.write(buffer, 0, read);
                 }
             }
 
-            // Vérification checksum
             try {
                 String checksumLocal = fileManager.calculerChecksum(fichierLocal);
                 return checksumLocal.equals(checksumServeur);
