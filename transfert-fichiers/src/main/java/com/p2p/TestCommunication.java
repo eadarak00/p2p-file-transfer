@@ -15,10 +15,16 @@ public class TestCommunication {
         NetworkManager serverManager = new NetworkManager(port, dossier);
         serverManager.demarrerServeur();
 
-        Thread.sleep(1000); // attendre que le serveur soit prêt
+        // Attendre un peu plus longtemps pour être sûr que le serveur est prêt
+        Thread.sleep(1500);
 
         NetworkManager clientManager = new NetworkManager(port, null);
         String jsonListe = clientManager.envoyerCommande("localhost", "LIST");
+
+        if (jsonListe == null) {
+            System.err.println("Erreur : aucune réponse du serveur.");
+            return;
+        }
 
         Gson gson = new Gson();
         Type listeType = new TypeToken<List<Metadata>>(){}.getType();
