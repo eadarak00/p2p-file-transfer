@@ -7,13 +7,11 @@ import com.google.gson.Gson;
 
 public class NetworkManager {
     private int port;
-    private String dossierPartage;
     private Gson gson = new Gson();
     private FileManager fileManager;
 
     public NetworkManager(int port, String dossierPartage) {
         this.port = port;
-        this.dossierPartage = dossierPartage;
         if (dossierPartage != null) {
             this.fileManager = new FileManager(dossierPartage);
         }
