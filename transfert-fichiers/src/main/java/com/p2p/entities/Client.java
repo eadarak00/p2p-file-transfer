@@ -44,15 +44,67 @@ public class Client {
         }
     }
 
+    // public boolean telechargerFichier(String nomFichier) {
+    // try (Socket socket = new Socket(adresse, port);
+    // BufferedReader in = new BufferedReader(new
+    // InputStreamReader(socket.getInputStream()));
+    // PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+    // InputStream socketIn = socket.getInputStream()) {
+
+    // // Envoi la commande GET
+    // out.println("GET " + nomFichier);
+
+    // String checksumServeur = in.readLine();
+    // if (checksumServeur == null || checksumServeur.startsWith("ERREUR"))
+    // return false;
+
+    // String tailleStr = in.readLine();
+    // if (tailleStr == null)
+    // return false;
+
+    // long tailleFichier = Long.parseLong(tailleStr);
+
+    // File fichierLocal = new File(dossierPerso, nomFichier);
+    // try (BufferedOutputStream bos = new BufferedOutputStream(new
+    // FileOutputStream(fichierLocal))) {
+    // byte[] buffer = new byte[4096];
+    // long reste = tailleFichier;
+    // while (reste > 0) {
+    // int toRead = (int) Math.min(buffer.length, reste);
+    // int lu = socketIn.read(buffer, 0, toRead);
+    // if (lu == -1)
+    // break;
+    // bos.write(buffer, 0, lu);
+    // reste -= lu;
+    // }
+    // }
+
+    // // Vérification checksum
+    // try {
+    // String checksumLocal = fileManager.calculerChecksum(fichierLocal);
+    // return checksumLocal.equals(checksumServeur);
+    // } catch (Exception ex) {
+    // ex.printStackTrace();
+    // return false;
+    // }
+
+    // } catch (IOException e) {
+    // e.printStackTrace();
+    // return false;
+    // }
+    // }
+
     public boolean telechargerFichier(String nomFichier) {
+        File fichierLocal = new File(dossierPerso, nomFichier);
+        long tailleLocale = fichierLocal.exists() ? fichierLocal.length() : 0;
+
         try (Socket socket = new Socket(adresse, port);
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                InputStream socketIn = socket.getInputStream()) {
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Envoi la commande GET
-            out.println("GET " + nomFichier);
+            out.println("GET " + nomFichier + " " + tailleLocale);
 
+            // Lecture checksum et taille avec BufferedReader
             String checksumServeur = in.readLine();
             if (checksumServeur == null || checksumServeur.startsWith("ERREUR"))
                 return false;
@@ -61,22 +113,33 @@ public class Client {
             if (tailleStr == null)
                 return false;
 
-            long tailleFichier = Long.parseLong(tailleStr);
+            long tailleFichierServeur = Long.parseLong(tailleStr);
 
-            File fichierLocal = new File(dossierPerso, nomFichier);
-            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fichierLocal))) {
+            if (tailleLocale > tailleFichierServeur) {
+                tailleLocale = 0;
+                try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fichierLocal))) {
+                    // Efface fichier
+                }
+            }
+
+            // IMPORTANT: passer directement au flux binaire de la socket (pas via
+            // BufferedReader)
+            InputStream socketIn = socket.getInputStream();
+
+            // Déplacer le pointeur du fichier selon tailleLocale (mode append)
+            try (RandomAccessFile raf = new RandomAccessFile(fichierLocal, "rw")) {
+                raf.seek(tailleLocale);
                 byte[] buffer = new byte[4096];
-                long reste = tailleFichier;
+                long reste = tailleFichierServeur - tailleLocale;
                 while (reste > 0) {
                     int toRead = (int) Math.min(buffer.length, reste);
                     int lu = socketIn.read(buffer, 0, toRead);
                     if (lu == -1)
                         break;
-                    bos.write(buffer, 0, lu);
+                    raf.write(buffer, 0, lu);
                     reste -= lu;
                 }
             }
-
             // Vérification checksum
             try {
                 String checksumLocal = fileManager.calculerChecksum(fichierLocal);

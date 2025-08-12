@@ -2,7 +2,6 @@ package com.p2p.entities;
 
 import com.p2p.FileManager;
 import com.p2p.Metadata;
-import com.p2p.utils.RessourceUtils;
 import com.google.gson.Gson;
 
 import java.io.*;
@@ -74,14 +73,31 @@ public class Serveur {
                     }
                     break;
 
+                // case "GET":
+                //     if (parts.length == 2) {
+                //         String nomFichier = parts[1];
+                //         envoyerFichier(dossierPartage, nomFichier, socketOut, out);
+                //     } else {
+                //         out.println("ERREUR: commande GET invalide");
+                //     }
+                //     break;
                 case "GET":
-                    if (parts.length == 2) {
+                    if (parts.length >= 2) {
                         String nomFichier = parts[1];
-                        envoyerFichier(dossierPartage, nomFichier, socketOut, out);
+                        long offset = 0;
+                        if (parts.length == 3) {
+                            try {
+                                offset = Long.parseLong(parts[2]);
+                            } catch (NumberFormatException e) {
+                                offset = 0;
+                            }
+                        }
+                        envoyerFichier(dossierPartage, nomFichier, socketOut, out, offset);
                     } else {
                         out.println("ERREUR: commande GET invalide");
                     }
                     break;
+
 
                 case "UPLOAD":
                     if (parts.length == 3) {
@@ -129,43 +145,85 @@ public class Serveur {
         }
     }
 
-    private void envoyerFichier(File dossierSource, String nomFichier, OutputStream socketOut, PrintWriter out) {
-        synchronized (fileLock) {
-            try {
-                File fichier = new File(dossierSource, nomFichier);
-                if (!fichier.exists() || !fichier.isFile()) {
-                    out.println("ERREUR: fichier introuvable");
-                    System.out.println("Fichier introuvable : " + fichier.getAbsolutePath());
-                    return;
-                }
+    // private void envoyerFichier(File dossierSource, String nomFichier, OutputStream socketOut, PrintWriter out) {
+    //     synchronized (fileLock) {
+    //         try {
+    //             File fichier = new File(dossierSource, nomFichier);
+    //             if (!fichier.exists() || !fichier.isFile()) {
+    //                 out.println("ERREUR: fichier introuvable");
+    //                 System.out.println("Fichier introuvable : " + fichier.getAbsolutePath());
+    //                 return;
+    //             }
 
-                FileManager fm = new FileManager(dossierSource.getPath());
-                String checksum = fm.calculerChecksum(fichier);
-                long taille = fichier.length();
+    //             FileManager fm = new FileManager(dossierSource.getPath());
+    //             String checksum = fm.calculerChecksum(fichier);
+    //             long taille = fichier.length();
 
-                out.println(checksum);
-                out.println(taille);
-                out.flush();
+    //             out.println(checksum);
+    //             out.println(taille);
+    //             out.flush();
 
-                try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fichier))) {
-                    byte[] buffer = new byte[4096];
-                    int read;
-                    long reste = taille;
-                    while (reste > 0 && (read = bis.read(buffer, 0, (int) Math.min(buffer.length, reste))) != -1) {
-                        socketOut.write(buffer, 0, read);
-                        reste -= read;
-                    }
-                }
-                socketOut.flush();
-                System.out.println("Fichier envoyé : " + fichier.getAbsolutePath());
+    //             try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(fichier))) {
+    //                 byte[] buffer = new byte[4096];
+    //                 int read;
+    //                 long reste = taille;
+    //                 while (reste > 0 && (read = bis.read(buffer, 0, (int) Math.min(buffer.length, reste))) != -1) {
+    //                     socketOut.write(buffer, 0, read);
+    //                     reste -= read;
+    //                 }
+    //             }
+    //             socketOut.flush();
+    //             System.out.println("Fichier envoyé : " + fichier.getAbsolutePath());
 
-            } catch (Exception e) {
-                e.printStackTrace();
-                out.println("ERREUR lors de l'envoi du fichier");
-                out.flush();
+    //         } catch (Exception e) {
+    //             e.printStackTrace();
+    //             out.println("ERREUR lors de l'envoi du fichier");
+    //             out.flush();
+    //         }
+    //     }
+    // }
+
+    private void envoyerFichier(File dossierSource, String nomFichier, OutputStream socketOut, PrintWriter out, long offset) {
+    synchronized (fileLock) {
+        try {
+            File fichier = new File(dossierSource, nomFichier);
+            if (!fichier.exists() || !fichier.isFile()) {
+                out.println("ERREUR: fichier introuvable");
+                System.out.println("Fichier introuvable : " + fichier.getAbsolutePath());
+                return;
             }
+
+            FileManager fm = new FileManager(dossierSource.getPath());
+            String checksum = fm.calculerChecksum(fichier);
+            long taille = fichier.length();
+
+            out.println(checksum);
+            out.println(taille);
+            out.flush();
+
+            try (RandomAccessFile raf = new RandomAccessFile(fichier, "r")) {
+                if (offset > 0) {
+                    raf.seek(offset);
+                }
+                byte[] buffer = new byte[4096];
+                long reste = taille - offset;
+                int read;
+                while (reste > 0 && (read = raf.read(buffer, 0, (int) Math.min(buffer.length, reste))) != -1) {
+                    socketOut.write(buffer, 0, read);
+                    reste -= read;
+                }
+            }
+            socketOut.flush();
+            System.out.println("Fichier envoyé : " + fichier.getAbsolutePath() + " depuis offset " + offset);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.println("ERREUR lors de l'envoi du fichier");
+            out.flush();
         }
     }
+}
+
 
     private void recevoirFichier(String pseudo, String nomFichier, InputStream socketIn, PrintWriter out) {
         synchronized (fileLock) {
