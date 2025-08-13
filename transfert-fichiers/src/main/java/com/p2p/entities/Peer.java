@@ -7,6 +7,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -1162,4 +1163,109 @@ public class Peer {
         System.out.println("Résultat: " + peersActifs + "/" + peersConnus.size() + " peers actifs");
         System.out.println("============================\n");
     }
+
+    /**
+     * Version améliorée du téléchargement avec vérification d'intégrité renforcée
+     */
+    public boolean telechargerDepuisPeerSecurise(PeerInfo peer, String nomFichier) {
+        File fichierLocal = new File(dossierPartage, nomFichier);
+        if (fichierLocal.exists()) {
+            String nomLocal = trouverNomCopie(fichierLocal);
+            System.out.println("Fichier existant, sauvegarde sous: " + nomLocal);
+            fichierLocal = new File(dossierPartage, nomLocal);
+        }
+
+        try (Socket socket = new Socket(peer.getAdresse(), peer.getPort());
+             InputStream socketIn = socket.getInputStream();
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            socket.setSoTimeout(30000); // Timeout plus long pour gros fichiers
+            out.println("GET " + nomFichier + " 0");
+
+            String checksumServeur = lireLigne(socketIn);
+            if (checksumServeur == null || checksumServeur.startsWith("ERREUR")) {
+                System.err.println("Erreur lors de la demande du fichier: " + checksumServeur);
+                return false;
+            }
+
+            String tailleStr = lireLigne(socketIn);
+            if (tailleStr == null) return false;
+
+            long tailleFichier = Long.parseLong(tailleStr);
+            if (tailleFichier <= 0 || tailleFichier > 10L * 1024 * 1024 * 1024) { // Max 10GB
+                System.err.println("Taille de fichier invalide: " + tailleFichier);
+                return false;
+            }
+
+            // Téléchargement avec vérification progressive
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            
+            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(fichierLocal))) {
+                byte[] buffer = new byte[8192];
+                long reste = tailleFichier;
+                long totalLu = 0;
+                int lu;
+
+                while (reste > 0 && (lu = socketIn.read(buffer, 0, (int) Math.min(buffer.length, reste))) != -1) {
+                    bos.write(buffer, 0, lu);
+                    digest.update(buffer, 0, lu);
+                    reste -= lu;
+                    totalLu += lu;
+                    
+                    // Afficher progression pour gros fichiers
+                    if (tailleFichier > 1024 * 1024 && totalLu % (1024 * 1024) == 0) {
+                        int progression = (int) ((totalLu * 100) / tailleFichier);
+                        System.out.print("\rTéléchargement: " + progression + "%");
+                    }
+                }
+                
+                if (tailleFichier > 1024 * 1024) {
+                    System.out.println(); // Nouvelle ligne après progression
+                }
+            }
+
+            // Vérification finale du checksum
+            byte[] hash = digest.digest();
+            StringBuilder checksumCalcule = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) checksumCalcule.append('0');
+                checksumCalcule.append(hex);
+            }
+
+            if (checksumCalcule.toString().equals(checksumServeur)) {
+                System.out.println("Fichier téléchargé avec succès: " + fichierLocal.getName());
+                return true;
+            } else {
+                System.err.println("Erreur checksum pour " + nomFichier);
+                System.err.println("Attendu: " + checksumServeur);
+                System.err.println("Calculé: " + checksumCalcule.toString());
+                fichierLocal.delete();
+                return false;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors du téléchargement depuis " + peer + ": " + e.getMessage());
+            if (fichierLocal.exists()) {
+                fichierLocal.delete();
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Validation des données reçues avant traitement
+     */
+    private boolean validerDonneesRecues(byte[] donnees, int longueurAttendue) {
+        if (donnees == null) return false;
+        if (donnees.length != longueurAttendue) return false;
+        
+        // Vérifications basiques de sanité
+        if (longueurAttendue > 100 * 1024 * 1024) { // 100MB max pour éviter les attaques mémoire
+            return false;
+        }
+        
+        return true;
+    }
+
 }
