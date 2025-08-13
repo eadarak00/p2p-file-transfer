@@ -1,6 +1,6 @@
 # README
 
-Ce dossier contient les fichiers partagés de Aime
+Ce dossier contient les fichiers partagés de Aim
 
 ## Instructions
 
