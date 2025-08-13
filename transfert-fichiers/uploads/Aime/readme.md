@@ -1,6 +1,6 @@
 # README
 
-Ce dossier contient les fichiers partagés de Aimerou
+Ce dossier contient les fichiers partagés de Aime
 
 ## Instructions
 
